@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glucose Guardian - Diabetes Management Game</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Lucide React icons as inline SVG components
+        const Heart = ({ className }) => (
+            <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+            </svg>
+        );
+
+        const Activity = ({ className }) => (
+            <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+        );
+
+        const Apple = ({ className }) => (
+            <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"></path>
+                <path d="M10 2c1 .5 2 2 2 5"></path>
+            </svg>
+        );
+
+        const Pill = ({ className }) => (
+            <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path>
+                <path d="m8.5 8.5 7 7"></path>
+            </svg>
+        );
+
+        const AlertCircle = ({ className }) => (
+            <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+        );
+
+        const Trophy = ({ className }) => (
+            <svg className={className} width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+                <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+                <path d="M4 22h16"></path>
+                <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+                <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+                <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+            </svg>
+        );
+
+        const GlucoseGuardian = () => {
+            const [gameState, setGameState] = useState('intro');
+            const [day, setDay] = useState(1);
+            const [glucoseLevel, setGlucoseLevel] = useState(100);
+            const [woundHealing, setWoundHealing] = useState(0);
+            const [energy, setEnergy] = useState(100);
+            const [timeOfDay, setTimeOfDay] = useState('morning');
+            const [history, setHistory] = useState([{ day: 1, time: 'morning', glucose: 100 }]);
+            const [message, setMessage] = useState('');
+            const [score, setScore] = useState(0);
+
+            const MAX_DAYS = 7;
+            const TARGET_MIN = 80;
+            const TARGET_MAX = 130;
+
+            useEffect(() => {
+                if (gameState === 'playing') {
+                    const avgGlucose = history.reduce((sum, h) => sum + h.glucose, 0) / history.length;
+                    const healingRate = avgGlucose < 140 ? 15 : avgGlucose < 180 ? 10 : 5;
+                    setWoundHealing(prev => Math.min(100, prev + healingRate));
+                }
+            }, [day, gameState]);
+
+            const getGlucoseColor = (level) => {
+                if (level < 70) return 'text-red-600';
+                if (level >= 70 && level <= 130) return 'text-green-600';
+                if (level > 130 && level <= 180) return 'text-yellow-600';
+                return 'text-red-600';
+            };
+
+            const getGlucoseStatus = (level) => {
+                if (level < 70) return 'LOW - Hypoglycemia';
+                if (level >= 70 && level <= 130) return 'TARGET RANGE';
+                if (level > 130 && level <= 180) return 'ELEVATED';
+                return 'HIGH - Hyperglycemia';
+            };
+
+            const makeChoice = (choice) => {
+                let newGlucose = glucoseLevel;
+                let newEnergy = energy;
+                let feedback = '';
+                let pointsEarned = 0;
+
+                switch(choice) {
+                    case 'balanced_breakfast':
+                        newGlucose += 30;
+                        newEnergy += 20;
+                        feedback = 'Good choice! Balanced meal with protein and complex carbs.';
+                        pointsEarned = 10;
+                        break;
+                    case 'sugary_breakfast':
+                        newGlucose += 80;
+                        newEnergy += 10;
+                        feedback = 'Blood sugar spiking! Simple sugars cause rapid increases.';
+                        pointsEarned = -5;
+                        break;
+                    case 'skip_breakfast':
+                        newGlucose -= 20;
+                        newEnergy -= 30;
+                        feedback = 'Skipping meals can cause unstable blood sugar.';
+                        pointsEarned = 0;
+                        break;
+                    case 'take_medication':
+                        newGlucose -= 40;
+                        feedback = 'Medication taken. Insulin helping cells absorb glucose.';
+                        pointsEarned = 15;
+                        break;
+                    case 'skip_medication':
+                        feedback = 'Skipped medication. Blood sugar will remain elevated.';
+                        pointsEarned = -10;
+                        break;
+                    case 'walk':
+                        newGlucose -= 25;
+                        newEnergy -= 10;
+                        feedback = 'Great! Exercise improves insulin sensitivity.';
+                        pointsEarned = 15;
+                        break;
+                    case 'sedentary':
+                        newGlucose += 10;
+                        newEnergy -= 5;
+                        feedback = 'Inactivity reduces insulin effectiveness.';
+                        pointsEarned = 0;
+                        break;
+                    case 'balanced_lunch':
+                        newGlucose += 35;
+                        newEnergy += 20;
+                        feedback = 'Well balanced! Fiber slows glucose absorption.';
+                        pointsEarned = 10;
+                        break;
+                    case 'fast_food':
+                        newGlucose += 90;
+                        newEnergy += 15;
+                        feedback = 'Fast food spike! High carbs + fat delay insulin action.';
+                        pointsEarned = -5;
+                        break;
+                    case 'check_wound':
+                        feedback = 'Wound check: High glucose impairs white blood cells and reduces healing.';
+                        pointsEarned = 5;
+                        break;
+                    case 'stress_management':
+                        newGlucose -= 15;
+                        newEnergy += 10;
+                        feedback = 'Stress reduction helps! Cortisol raises blood sugar.';
+                        pointsEarned = 10;
+                        break;
+                }
+
+                newGlucose -= 5;
+                newGlucose = Math.max(50, Math.min(400, newGlucose));
+                newEnergy = Math.max(0, Math.min(100, newEnergy));
+
+                if (newGlucose >= TARGET_MIN && newGlucose <= TARGET_MAX) {
+                    pointsEarned += 5;
+                    feedback += ' 🎯 In target range!';
+                }
+
+                setGlucoseLevel(newGlucose);
+                setEnergy(newEnergy);
+                setMessage(feedback);
+                setScore(prev => prev + pointsEarned);
+
+                advanceTime(newGlucose);
+            };
+
+            const advanceTime = (currentGlucose) => {
+                const times = ['morning', 'midday', 'afternoon', 'evening'];
+                const currentIndex = times.indexOf(timeOfDay);
+                
+                if (currentIndex < times.length - 1) {
+                    const newTime = times[currentIndex + 1];
+                    setTimeOfDay(newTime);
+                    setHistory(prev => [...prev, { day, time: newTime, glucose: currentGlucose }]);
+                } else {
+                    if (day < MAX_DAYS) {
+                        setDay(prev => prev + 1);
+                        setTimeOfDay('morning');
+                        setHistory(prev => [...prev, { day: day + 1, time: 'morning', glucose: currentGlucose }]);
+                        setMessage(`Day ${day} complete! New day begins...`);
+                    } else {
+                        setGameState('results');
+                    }
+                }
+            };
+
+            const startGame = () => {
+                setGameState('playing');
+                setDay(1);
+                setGlucoseLevel(100);
+                setWoundHealing(0);
+                setEnergy(100);
+                setTimeOfDay('morning');
+                setHistory([{ day: 1, time: 'morning', glucose: 100 }]);
+                setMessage('');
+                setScore(0);
+            };
+
+            if (gameState === 'intro') {
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+                        <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-2xl p-8">
+                            <div className="text-center mb-8">
+                                <Heart className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                                <h1 className="text-4xl font-bold text-gray-800 mb-2">Glucose Guardian</h1>
+                                <p className="text-xl text-gray-600">A Diabetes Management Journey</p>
+                            </div>
+
+                            <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mb-6">
+                                <h2 className="text-xl font-semibold text-gray-800 mb-3">Your Mission</h2>
+                                <p className="text-gray-700 leading-relaxed mb-3">
+                                    You're managing a patient with a chronic foot wound. Your goal: maintain blood glucose 
+                                    levels between <strong>80-130 mg/dL</strong> to optimize wound healing over 7 days.
+                                </p>
+                                <p className="text-gray-700 leading-relaxed">
+                                    Every choice matters—from meals to medication timing to physical activity. 
+                                    <strong> Poor glucose control slows healing.</strong> Can you help this wound close?
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                <div className="bg-green-50 p-4 rounded-lg">
+                                    <h3 className="font-semibold text-green-800 mb-2">Good Control Means:</h3>
+                                    <ul className="text-sm text-green-700 space-y-1">
+                                        <li>• Faster wound healing</li>
+                                        <li>• Better immune function</li>
+                                        <li>• More energy</li>
+                                        <li>• Fewer complications</li>
+                                    </ul>
+                                </div>
+                                <div className="bg-red-50 p-4 rounded-lg">
+                                    <h3 className="font-semibold text-red-800 mb-2">Poor Control Causes:</h3>
+                                    <ul className="text-sm text-red-700 space-y-1">
+                                        <li>• Impaired white blood cells</li>
+                                        <li>• Delayed healing</li>
+                                        <li>• Infection risk</li>
+                                        <li>• Tissue damage</li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={startGame}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg text-lg transition-colors"
+                            >
+                                Start Your 7-Day Journey
+                            </button>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (gameState === 'results') {
+                const avgGlucose = Math.round(history.reduce((sum, h) => sum + h.glucose, 0) / history.length);
+                const timeInRange = history.filter(h => h.glucose >= TARGET_MIN && h.glucose <= TARGET_MAX).length;
+                const percentInRange = Math.round((timeInRange / history.length) * 100);
+                
+                let healingGrade = '';
+                let healingMessage = '';
+                
+                if (woundHealing >= 90) {
+                    healingGrade = 'Excellent';
+                    healingMessage = 'The wound shows significant healing! Excellent glucose management.';
+                } else if (woundHealing >= 70) {
+                    healingGrade = 'Good';
+                    healingMessage = 'Good progress on wound healing. Some room for improvement.';
+                } else if (woundHealing >= 50) {
+                    healingGrade = 'Fair';
+                    healingMessage = 'Wound healing is slow. Better glucose control would help.';
+                } else {
+                    healingGrade = 'Poor';
+                    healingMessage = 'Minimal wound healing. High glucose severely impairs recovery.';
+                }
+
+                return (
+                    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8">
+                        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-2xl p-8">
+                            <div className="text-center mb-8">
+                                <Trophy className="w-20 h-20 text-yellow-500 mx-auto mb-4" />
+                                <h1 className="text-4xl font-bold text-gray-800 mb-2">7-Day Journey Complete!</h1>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6 mb-8">
+                                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg">
+                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Average Glucose</h3>
+                                    <p className={`text-4xl font-bold ${getGlucoseColor(avgGlucose)}`}>{avgGlucose}</p>
+                                    <p className="text-sm text-gray-600 mt-1">mg/dL</p>
+                                </div>
+                                
+                                <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg">
+                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Time in Range</h3>
+                                    <p className="text-4xl font-bold text-green-600">{percentInRange}%</p>
+                                    <p className="text-sm text-gray-600 mt-1">Target: 80-130 mg/dL</p>
+                                </div>
+                                
+                                <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg">
+                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Wound Healing</h3>
+                                    <p className="text-4xl font-bold text-purple-600">{woundHealing}%</p>
+                                    <p className="text-sm text-gray-600 mt-1">{healingGrade}</p>
+                                </div>
+                                
+                                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-6 rounded-lg">
+                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Total Score</h3>
+                                    <p className="text-4xl font-bold text-yellow-600">{score}</p>
+                                    <p className="text-sm text-gray-600 mt-1">points</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-indigo-50 border-l-4 border-indigo-500 p-6 mb-6">
+                                <h3 className="font-semibold text-indigo-900 mb-2">Clinical Insight</h3>
+                                <p className="text-gray-700 leading-relaxed mb-3">{healingMessage}</p>
+                                <p className="text-gray-700 leading-relaxed">
+                                    <strong>Why it matters:</strong> Chronic hyperglycemia impairs neutrophil function, 
+                                    reduces collagen synthesis, and promotes inflammation—all critical barriers to wound healing. 
+                                    Maintaining glucose in the target range is one of the most powerful interventions you can make.
+                                </p>
+                            </div>
+
+                            <div className="bg-gray-50 p-6 rounded-lg mb-6">
+                                <h3 className="font-semibold text-gray-800 mb-3">Glucose Trend Over 7 Days</h3>
+                                <div className="flex items-end justify-between h-40 gap-1">
+                                    {history.map((h, idx) => {
+                                        const height = Math.min((h.glucose / 300) * 100, 100);
+                                        const color = h.glucose >= TARGET_MIN && h.glucose <= TARGET_MAX 
+                                            ? 'bg-green-500' 
+                                            : h.glucose < TARGET_MIN 
+                                            ? 'bg-red-500' 
+                                            : 'bg-yellow-500';
+                                        
+                                        return (
+                                            <div key={idx} className="flex-1 flex flex-col items-center">
+                                                <div 
+                                                    className={`w-full ${color} rounded-t transition-all`}
+                                                    style={{ height: `${height}%` }}
+                                                    title={`Day ${h.day} ${h.time}: ${h.glucose} mg/dL`}
+                                                />
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex justify-between text-xs text-gray-600 mt-2">
+                                    <span>Day 1</span>
+                                    <span>Day 7</span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                <button
+                                    onClick={startGame}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+                                >
+                                    Play Again
+                                </button>
+                                <button
+                                    onClick={() => setGameState('intro')}
+                                    className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg transition-colors"
+                                >
+                                    Back to Intro
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
+                    <div className="max-w-5xl mx-auto">
+                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <div className="grid grid-cols-4 gap-4">
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-1">Day</p>
+                                    <p className="text-3xl font-bold text-indigo-600">{day}/{MAX_DAYS}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-1">Blood Glucose</p>
+                                    <p className={`text-3xl font-bold ${getGlucoseColor(glucoseLevel)}`}>
+                                        {glucoseLevel}
+                                    </p>
+                                    <p className="text-xs text-gray-500">{getGlucoseStatus(glucoseLevel)}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-1">Wound Healing</p>
+                                    <div className="flex items-center">
+                                        <div className="flex-1 bg-gray-200 rounded-full h-4 mr-2">
+                                            <div 
+                                                className="bg-green-500 h-4 rounded-full transition-all duration-500"
+                                                style={{ width: `${woundHealing}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-sm font-semibold">{woundHealing}%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-gray-600 mb-1">Score</p>
+                                    <p className="text-3xl font-bold text-purple-600">{score}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {message && (
+                            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
+                                <p className="text-gray-800">{message}</p>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <h2 className="text-2xl font-bold text-gray-800 mb-4 capitalize">
+                                {timeOfDay} - What will you do?
+                            </h2>
+
+                            {timeOfDay === 'morning' && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <button
+                                        onClick={() => makeChoice('balanced_breakfast')}
+                                        className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <Apple className="w-8 h-8 text-green-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Balanced Breakfast</h3>
+                                        <p className="text-sm text-gray-600">Oatmeal with berries and nuts</p>
+                                        <p className="text-xs text-green-600 mt-2">~30g carbs, high fiber</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => makeChoice('sugary_breakfast')}
+                                        className="bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <Apple className="w-8 h-8 text-yellow-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Sugary Breakfast</h3>
+                                        <p className="text-sm text-gray-600">Donuts and orange juice</p>
+                                        <p className="text-xs text-yellow-600 mt-2">~80g carbs, simple sugars</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => makeChoice('skip_breakfast')}
+                                        className="bg-red-50 hover:bg-red-100 border-2 border-red-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <AlertCircle className="w-8 h-8 text-red-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Skip Breakfast</h3>
+                                        <p className="text-sm text-gray-600">No time to eat</p>
+                                        <p className="text-xs text-red-600 mt-2">Unstable glucose</p>
+                                    </button>
+                                </div>
+                            )}
+
+                            {timeOfDay === 'midday' && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => makeChoice('take_medication')}
+                                        className="bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <Pill className="w-8 h-8 text-blue-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Take Medication</h3>
+                                        <p className="text-sm text-gray-600">Insulin before lunch</p>
+                                        <p className="text-xs text-blue-600 mt-2">Helps cells absorb glucose</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => makeChoice('skip_medication')}
+                                        className="bg-red-50 hover:bg-red-100 border-2 border-red-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <AlertCircle className="w-8 h-8 text-red-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Skip Medication</h3>
+                                        <p className="text-sm text-gray-600">Forgot or too busy</p>
+                                        <p className="text-xs text-red-600 mt-2">Glucose stays elevated</p>
+                                    </button>
+                                </div>
+                            )}
+
+                            {timeOfDay === 'afternoon' && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <button
+                                        onClick={() => makeChoice('walk')}
+                                        className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <Activity className="w-8 h-8 text-green-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">30-Minute Walk</h3>
+                                        <p className="text-sm text-gray-600">Moderate exercise</p>
+                                        <p className="text-xs text-green-600 mt-2">Improves insulin sensitivity</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => makeChoice('sedentary')}
+                                        className="bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <AlertCircle className="w-8 h-8 text-gray-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Watch TV</h3>
+                                        <p className="text-sm text-gray-600">Sedentary afternoon</p>
+                                        <p className="text-xs text-gray-600 mt-2">Reduced insulin effectiveness</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => makeChoice('balanced_lunch')}
+                                        className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <Apple className="w-8 h-8 text-green-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Balanced Lunch</h3>
+                                        <p className="text-sm text-gray-600">Grilled chicken salad</p>
+                                        <p className="text-xs text-green-600 mt-2">~35g carbs, high protein</p>
+                                    </button>
+                                </div>
+                            )}
+
+                            {timeOfDay === 'evening' && (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <button
+                                        onClick={() => makeChoice('balanced_lunch')}
+                                        className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <Apple className="w-8 h-8 text-green-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Healthy Dinner</h3>
+                                        <p className="text-sm text-gray-600">Salmon, vegetables, quinoa</p>
+                                        <p className="text-xs text-green-600 mt-2">~40g carbs, omega-3s</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => makeChoice('fast_food')}
+                                        className="bg-red-50 hover:bg-red-100 border-2 border-red-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <AlertCircle className="w-8 h-8 text-red-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Fast Food</h3>
+                                        <p className="text-sm text-gray-600">Burger, fries, soda</p>
+                                        <p className="text-xs text-red-600 mt-2">~90g carbs, high fat</p>
+                                    </button>
+
+                                    <button
+                                        onClick={() => makeChoice('check_wound')}
+                                        className="bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 p-6 rounded-lg text-left transition-all"
+                                    >
+                                        <Heart className="w-8 h-8 text-purple-600 mb-2" />
+                                        <h3 className="font-semibold text-gray-800 mb-2">Check Wound</h3>
+                                        <p className="text-sm text-gray-600">Evening wound care</p>
+                                        <p className="text-xs text-purple-600 mt-2">Monitor healing progress</p>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg p-6 mt-6">
+                            <h3 className="font-semibold text-gray-800 mb-3">Recent Glucose Levels</h3>
+                            <div className="flex items-end justify-between h-24 gap-1">
+                                {history.slice(-12).map((h, idx) => {
+                                    const height = Math.min((h.glucose / 300) * 100, 100);
+                                    const color = h.glucose >= TARGET_MIN && h.glucose <= TARGET_MAX 
+                                        ? 'bg-green-500' 
+                                        : h.glucose < TARGET_MIN 
+                                        ? 'bg-red-500' 
+                                        : 'bg-yellow-500';
+                                    
+                                    return (
+                                        <div key={idx} className="flex-1 flex flex-col items-center">
+                                            <div 
+                                                className={`w-full ${color} rounded-t transition-all`}
+                                                style={{ height: `${height}%` }}
+                                                title={`${h.glucose} mg/dL`}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
+                                <span>Target Range: 80-130 mg/dL</span>
+                                <div className="flex gap-3">
+                                    <span className="flex items-center gap-1">
+                                        <div className="w-3 h-3 bg-green-500 rounded"></div> In Range
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <div className="w-3 h-3 bg-yellow-500 rounded"></div> High
+                                    </span>
+                                    <span className="flex items-center gap-1">
+                                        <div className="w-3 h-3 bg-red-500 rounded"></div> Low
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<GlucoseGuardian />);
+    </script>
+</body>
+</html>
