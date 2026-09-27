@@ -9,591 +9,627 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        .fade-in { animation: fadeIn 0.5s ease-out; }
-        .btn-press:active { transform: scale(0.98); }
-        .smooth { transition: all 0.3s ease; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
 
-        /* Hypoglycemia warning pulse */
-        @keyframes hypoPulse {
-            0%, 100% { background-color: #fee2e2; }
-            50% { background-color: #fca5a5; }
-        }
+        /* ── Fade in screens ── */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.45s ease-out; }
+
+        /* ── Card hover lift & icon float ── */
+        .choice-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .choice-card:hover { transform: translateY(-5px); box-shadow: 0 10px 24px rgba(0,0,0,0.13); }
+        .choice-card:active { transform: scale(0.97); }
+        @keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-6px);} }
+        .choice-card:hover .card-icon { animation: float 0.55s ease-in-out; }
+
+        /* ── Score pop ── */
+        @keyframes scorePop { 0%,100%{transform:scale(1);} 50%{transform:scale(1.3);} }
+        .score-pop { animation: scorePop 0.3s ease-in-out; }
+
+        /* ── Wound bar glow ── */
+        @keyframes healGlow { 0%,100%{box-shadow:none;} 50%{box-shadow:0 0 14px rgba(34,197,94,0.7);} }
+        .heal-glow { animation: healGlow 0.8s ease-in-out 2; }
+
+        /* ── Hypo alert pulse ── */
+        @keyframes hypoPulse { 0%,100%{background-color:#fee2e2;} 50%{background-color:#fca5a5;} }
         .hypo-alert { animation: hypoPulse 1s ease-in-out 3; }
+
+        /* ── Time-of-day progress dots ── */
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+        .smooth { transition: all 0.3s ease; }
     </style>
 </head>
 <body>
-    <div id="root"></div>
+<div id="root"></div>
+<script type="text/babel">
+    const { useState, useEffect, useRef } = React;
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
+    /* ── Icons ── */
+    const Heart    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>;
+    const Activity = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
+    const Apple    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"/></svg>;
+    const Pill     = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/></svg>;
+    const AlertIc  = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+    const Trophy   = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
+    const Shield   = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
 
-        // SVG Icons
-        const Heart = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>;
-        const Activity = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
-        const Apple = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.22A4.91 4.91 0 0 0 17 5c-2.22 0-4 1.44-5 2-1-.56-2.78-2-5-2a4.9 4.9 0 0 0-5 4.78C2 14 5 22 8 22c1.25 0 2.5-1.06 4-1.06Z"></path></svg>;
-        const Pill = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"></path></svg>;
-        const Alert = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>;
-        const Trophy = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path></svg>;
-        const Shield = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>;
+    /* ── Disclaimer ── */
+    const Disclaimer = () => (
+        <div className="mt-6 border border-gray-200 rounded-lg p-3 bg-gray-50">
+            <p className="text-xs text-gray-500 text-center leading-relaxed">
+                ⚕️ <strong>Educational simulation only.</strong> This game is not a substitute for
+                medical advice. Always follow your healthcare team's instructions for managing
+                diabetes and wound care.
+            </p>
+        </div>
+    );
 
-        // ── IMPROVEMENT #1 ──────────────────────────────────────────
-        // Disclaimer component — appears on intro AND results screens.
-        // Keeps liability language visible wherever a screenshot might
-        // be taken and shared without surrounding context.
-        const Disclaimer = () => (
-            <div className="mt-6 border border-gray-200 rounded-lg p-3 bg-gray-50">
-                <p className="text-xs text-gray-500 text-center leading-relaxed">
-                    ⚕️ <strong>Educational simulation only.</strong> This game is not a substitute
-                    for medical advice. Always follow your healthcare team's instructions
-                    for managing diabetes and wound care.
-                </p>
+    /* ── Time-of-day progress bar ── */
+    // FIX 1: Now shows 5 steps — morning, midday, afternoon, dinner, evening
+    const TIMES = ['morning', 'midday', 'afternoon', 'dinner', 'evening'];
+    const TIME_LABELS = {
+        morning:   '🌅 Breakfast',
+        midday:    '💊 Medication',
+        afternoon: '🏃 Activity',
+        dinner:    '🍽️ Dinner',
+        evening:   '🩹 Wound Care'
+    };
+
+    const TimeStepper = ({ current }) => (
+        <div className="flex items-center justify-between mb-6 px-2">
+            {TIMES.map((t, i) => {
+                const done    = TIMES.indexOf(current) > i;
+                const active  = current === t;
+                return (
+                    <React.Fragment key={t}>
+                        <div className="flex flex-col items-center">
+                            <div className={`dot ${done ? 'bg-green-500' : active ? 'bg-indigo-500' : 'bg-gray-300'}`} />
+                            <span className={`text-xs mt-1 ${active ? 'text-indigo-700 font-semibold' : 'text-gray-400'}`}
+                                  style={{fontSize:'10px', whiteSpace:'nowrap'}}>
+                                {TIME_LABELS[t].split(' ')[1]}
+                            </span>
+                        </div>
+                        {i < TIMES.length - 1 && (
+                            <div className={`flex-1 h-0.5 mx-1 ${done ? 'bg-green-400' : 'bg-gray-200'}`} />
+                        )}
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    );
+
+    /* ── Plain-language clinical insights ── */
+    const ClinicalInsights = ({ avgGlucose, percentInRange, hypoEvents, onGLP1, woundHealing }) => {
+        const cards = [];
+        if (percentInRange >= 70) {
+            cards.push({ icon:'✅', title:'Good blood sugar control helped your wound heal',
+                body:"When blood sugar stays in a healthy range, the cells that fight infection work at full strength, your skin can build new tissue, and swelling goes down faster. Think of it like having the right weather to repair a roof — the conditions were right for healing." });
+        } else if (percentInRange >= 40) {
+            cards.push({ icon:'⚠️', title:'Ups and downs in blood sugar slowed healing',
+                body:"Even a few hours of high blood sugar each day adds up. Your body's infection fighters don't work as well, skin repair slows down, and the wound stays open longer. Consistency matters — keeping blood sugar steady throughout the day is as important as any single good choice." });
+        } else {
+            cards.push({ icon:'❌', title:'High blood sugar made this wound much harder to heal',
+                body:"When blood sugar stays high day after day, your body's natural repair system breaks down. The cells that fight germs slow to a crawl, the skin loses its ability to rebuild itself, and the wound stays swollen and open. It's like trying to patch a roof in a rainstorm — the conditions just don't allow for good repair work." });
+        }
+        if (hypoEvents > 0) {
+            cards.push({ icon:'⚡', title:'Going too low is just as dangerous as going too high',
+                body:`Your blood sugar dropped dangerously low ${hypoEvents} time${hypoEvents>1?'s':''} this week. Your brain runs on sugar — when levels crash, you may feel shaky, confused, sweaty, or even lose consciousness. The goal is the "middle lane": not too high, not too low. Treat lows with 15g of fast sugar and recheck in 15 minutes.` });
+        }
+        if (onGLP1) {
+            cards.push({ icon:'💊', title:'Your GLP-1 medication worked on two fronts',
+                body:"The medication you chose (like semaglutide — brand name Ozempic or Wegovy) does more than just lower blood sugar. New research shows it also reduces the chance of losing a toe or foot in people with diabetes. Ask your care team if it might be right for you." });
+        }
+        if (woundHealing < 55) {
+            cards.push({ icon:'🦶', title:'Blood sugar is only part of the picture',
+                body:"In real life, keeping pressure off the wound — using a special boot, diabetic shoes, or a wheelchair — is often just as important as blood sugar control. Even perfect blood sugar can't heal a wound that's being walked on every day. Talk to your wound care team about pressure relief." });
+        }
+        return (
+            <div className="mb-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-3">What happened inside your body</h3>
+                <div className="space-y-3">
+                    {cards.map((c, i) => (
+                        <div key={i} className="bg-white border border-gray-200 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <span className="text-2xl flex-shrink-0">{c.icon}</span>
+                                <div>
+                                    <p className="font-semibold text-gray-800 mb-1">{c.title}</p>
+                                    <p className="text-sm text-gray-600 leading-relaxed">{c.body}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    /* ── Choice card component (reusable) ── */
+    const ChoiceCard = ({ onClick, colorClass, borderClass, iconColor, icon, title, sub, tag, disabled }) => (
+        <button onClick={onClick} disabled={disabled}
+            className={`choice-card ${colorClass} ${borderClass} border-2 p-5 rounded-xl text-left ${disabled?'opacity-50 cursor-not-allowed':''}`}>
+            <div className={`card-icon w-8 h-8 ${iconColor} mb-2`}>{icon}</div>
+            <h3 className="font-semibold text-gray-800 mb-1">{title}</h3>
+            <p className="text-sm text-gray-500">{sub}</p>
+            {tag && <p className={`text-xs mt-2 font-medium ${iconColor}`}>{tag}</p>}
+        </button>
+    );
+
+    /* ══════════════════════════════════════════════════════════════
+       MAIN GAME
+    ══════════════════════════════════════════════════════════════ */
+    function GlucoseGuardian() {
+        const [gameState,      setGameState]      = useState('intro');
+        const [day,            setDay]            = useState(1);
+        const [glucoseLevel,   setGlucoseLevel]   = useState(100);
+        const [woundHealing,   setWoundHealing]   = useState(0);
+        const [timeOfDay,      setTimeOfDay]      = useState('morning');
+        const [history,        setHistory]        = useState([{day:1, time:'morning', glucose:100}]);
+        const [message,        setMessage]        = useState('');
+        const [score,          setScore]          = useState(0);
+        const [wifiScore,      setWifiScore]      = useState(2);
+        const [onGLP1,         setOnGLP1]         = useState(false);
+        const [amputationRisk, setAmputationRisk] = useState('moderate');
+        const [hypoEvent,      setHypoEvent]      = useState(false);
+        const [feedbackResp,   setFeedbackResp]   = useState(null);
+        const [scoreFlash,     setScoreFlash]     = useState(false);
+        const [healFlash,      setHealFlash]      = useState(false);
+
+        const MAX_DAYS = 7; const TARGET_MIN = 80; const TARGET_MAX = 130; const HYPO = 70;
+
+        useEffect(() => {
+            if (gameState !== 'playing') return;
+            const avg = history.reduce((s,h)=>s+h.glucose,0)/history.length;
+            const rate = avg < 140 ? 15 : avg < 180 ? 10 : 5;
+            const bonus = onGLP1 ? 5 : 0;
+            setWoundHealing(prev => {
+                const next = Math.min(100, prev + rate + bonus);
+                if (next > prev) { setHealFlash(true); setTimeout(()=>setHealFlash(false), 1000); }
+                return next;
+            });
+            const ws = avg < 130 ? (onGLP1?0:1) : avg < 180 ? (onGLP1?1:2) : (onGLP1?2:3);
+            setWifiScore(ws);
+            setAmputationRisk(['very low','low','moderate','high'][ws]);
+        }, [day, gameState, onGLP1, history]);
+
+        const gcColor = lvl => lvl<HYPO?'text-red-600':lvl<=TARGET_MAX?'text-green-600':lvl<=180?'text-yellow-600':'text-red-600';
+        const wfColor = () => wifiScore<=1?'text-green-600':wifiScore===2?'text-yellow-600':'text-red-600';
+
+        const addPoints = (pts) => {
+            setScore(prev => prev + pts);
+            setScoreFlash(true);
+            setTimeout(()=>setScoreFlash(false), 350);
+        };
+
+        const makeChoice = (choice) => {
+            let g = glucoseLevel, msg = '', pts = 0;
+            switch(choice) {
+                /* ── Breakfast ── */
+                case 'balanced_breakfast':
+                    g+=30; msg="Steel-cut oatmeal's soluble fiber slows sugar into your bloodstream — steady energy, no spike."; pts=10; break;
+                case 'smoothie_granola':
+                    g+=65; msg="Surprising! Blending destroys fiber, so smoothie fruit acts like juice. Flavored granola adds hidden sugar. Almost the same spike as soda."; pts=-5; break;
+                case 'skip_breakfast':
+                    g-=20; msg="Skipping releases stress hormones that push glucose up later. Blood sugar becomes unpredictable all day."; break;
+                /* ── Medication ── */
+                case 'take_glp1':
+                    g-=45; setOnGLP1(true);
+                    msg="GLP-1 started! It slows stomach emptying, helps your pancreas release the right insulin, AND new research (ADA 2026) shows it reduces amputation risk."; pts=20; break;
+                case 'take_medication':
+                    g-=40; msg="Insulin taken on time — it opens your body's cells like a key so they can absorb glucose from the blood."; pts=15; break;
+                case 'skip_medication':
+                    msg="Without medication, glucose has nowhere to go and keeps building in the blood — slowing every part of healing."; pts=-10; break;
+                /* ── Activity (FIX 2: 4 options for different ability levels) ── */
+                case 'walk_30':
+                    g-=25; msg="30-minute walk: muscles absorb glucose directly without insulin — no other single activity lowers blood sugar faster or longer."; pts=15; break;
+                case 'chair_exercises':
+                    g-=15; msg="Chair exercises count! Seated resistance movements still activate muscles and lower blood sugar. Perfect when walking isn't possible — every bit of movement helps."; pts=10; break;
+                case 'light_yoga':
+                    g-=10; msg="Gentle yoga and stretching improve circulation — especially important for foot wound healing. It also lowers the stress hormones that raise blood sugar."; pts=8; break;
+                case 'rest_couch':
+                    g+=10; msg="Prolonged sitting makes cells less responsive to insulin. Even standing up for 5 minutes every hour makes a measurable difference."; pts=0; break;
+                /* ── Dinner (FIX 1: now its own time slot) ── */
+                case 'healthy_dinner':
+                    g+=35; msg="Salmon's healthy fats slow digestion and reduce inflammation. Quinoa has a lower glycemic index than rice or pasta — a gradual, manageable rise."; pts=10; break;
+                case 'pasta_dinner':
+                    g+=80; msg="Surprising! White pasta breaks down into sugar almost as fast as candy, even though it doesn't taste sweet. A large serving can spike blood sugar as much as a candy bar. Whole-grain pasta or a smaller portion helps a lot."; pts=-5; break;
+                case 'baked_potato_dinner':
+                    g+=70; msg="Tricky choice! The chicken is excellent, but a plain baked potato has one of the highest glycemic indexes of any food (~85–111). It converts to sugar almost immediately. Swapping for sweet potato or adding butter slows absorption."; pts=-5; break;
+                /* ── Evening wound care (FIX 1: now separate from dinner) ── */
+                case 'dress_wound':
+                    msg=`Wound cleaned and dressed properly. Daily wound care removes bacteria before they cause infection. Your WIfI score is ${wifiScore} — this predicts how well the wound is healing and your risk of amputation.`; pts=10; break;
+                case 'skip_wound_care':
+                    msg="Wound care skipped. Without daily cleaning, bacteria accumulate and infection risk rises — which drives blood sugar up and healing down. A vicious cycle."; pts=-10; break;
+                case 'relaxation':
+                    g-=10; msg="Good sleep routine! Stress hormones like cortisol raise blood sugar and impair healing. A calm evening and 7–8 hours of sleep are underrated parts of diabetes management."; pts=8; break;
+                case 'advanced_therapy':
+                    msg="Advanced wound therapy discussed with your provider. ADA 2026 guidelines recommend raising this option earlier — before wounds become chronic — rather than waiting until standard care has failed."; pts=10; break;
+            }
+
+            g -= 5; // natural drift
+            g = Math.max(50, Math.min(400, g));
+
+            if (g < HYPO) {
+                msg = '🚨 LOW BLOOD SUGAR below 70 mg/dL. Real symptoms: shakiness, confusion, sweating, risk of passing out. Treat immediately with 15g of fast sugar (4 glucose tablets, half a cup of juice). Recheck in 15 minutes.';
+                pts -= 15; setHypoEvent(true);
+            } else {
+                setHypoEvent(false);
+                if (g >= TARGET_MIN && g <= TARGET_MAX) { pts += 5; msg += ' 🎯 In target range!'; }
+            }
+
+            setGlucoseLevel(g); setMessage(msg); addPoints(pts);
+            advanceTime(g);
+        };
+
+        const advanceTime = (g) => {
+            const idx = TIMES.indexOf(timeOfDay);
+            if (idx < TIMES.length - 1) {
+                setTimeOfDay(TIMES[idx+1]);
+                setHistory(prev => [...prev, {day, time:TIMES[idx+1], glucose:g}]);
+            } else {
+                if (day < MAX_DAYS) {
+                    setDay(prev=>prev+1); setTimeOfDay('morning'); setHypoEvent(false);
+                    setHistory(prev=>[...prev,{day:day+1,time:'morning',glucose:g}]);
+                    setMessage(`Day ${day} complete! Starting Day ${day+1}...`);
+                } else { setGameState('results'); }
+            }
+        };
+
+        const startGame = () => {
+            setGameState('playing'); setDay(1); setGlucoseLevel(100); setWoundHealing(0);
+            setTimeOfDay('morning'); setHistory([{day:1,time:'morning',glucose:100}]);
+            setMessage(''); setScore(0); setWifiScore(2); setOnGLP1(false);
+            setAmputationRisk('moderate'); setHypoEvent(false); setFeedbackResp(null);
+        };
+
+        /* ══ INTRO ══════════════════════════════════════════════════ */
+        if (gameState === 'intro') return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 fade-in">
+                <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-2xl p-8">
+                    <div className="text-center mb-8">
+                        <div className="w-16 h-16 text-red-500 mx-auto mb-4"><Heart /></div>
+                        <h1 className="text-4xl font-bold text-gray-800 mb-2">Glucose Guardian</h1>
+                        <p className="text-xl text-gray-600">A Diabetes Management Journey</p>
+                        <p className="text-sm text-indigo-600 mt-2">Updated with ADA 2026 Standards</p>
+                    </div>
+                    <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mb-6">
+                        <h2 className="text-xl font-semibold text-gray-800 mb-3">Your Mission</h2>
+                        <p className="text-gray-700 mb-3">
+                            You are managing a patient with a chronic foot wound.
+                            Goal: keep blood sugar between <strong>80–130 mg/dL</strong> over 7 days.
+                        </p>
+                        <p className="text-gray-700">
+                            Make 5 decisions each day — breakfast, medication, activity, dinner, and wound care.
+                            Some choices may surprise you!
+                        </p>
+                    </div>
+                    <div className="bg-indigo-50 border-l-4 border-indigo-500 p-6 mb-6">
+                        <h2 className="text-lg font-semibold text-gray-800 mb-2">🆕 2026 ADA Updates</h2>
+                        <ul className="text-sm text-gray-700 space-y-2">
+                            <li><strong>WIfI Staging:</strong> Predicts healing and amputation risk</li>
+                            <li><strong>GLP-1 Medications:</strong> Newer drugs that also reduce amputation risk</li>
+                            <li><strong>Advanced Therapies:</strong> Recommended earlier in the care process</li>
+                        </ul>
+                    </div>
+                    <button onClick={startGame}
+                        className="choice-card w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg">
+                        Start Your 7-Day Journey
+                    </button>
+                    <Disclaimer />
+                </div>
             </div>
         );
 
-        function GlucoseGuardian() {
-            const [gameState, setGameState]       = useState('intro');
-            const [day, setDay]                   = useState(1);
-            const [glucoseLevel, setGlucoseLevel] = useState(100);
-            const [woundHealing, setWoundHealing] = useState(0);
-            const [timeOfDay, setTimeOfDay]       = useState('morning');
-            const [history, setHistory]           = useState([{ day: 1, time: 'morning', glucose: 100 }]);
-            const [message, setMessage]           = useState('');
-            const [score, setScore]               = useState(0);
-            const [wifiScore, setWifiScore]       = useState(2);
-            const [onGLP1, setOnGLP1]             = useState(false);
-            const [amputationRisk, setAmputationRisk] = useState('moderate');
-
-            // ── IMPROVEMENT #2 ──────────────────────────────────────
-            // Hypoglycemia state — tracked separately so the UI can
-            // render a distinct pulsing warning panel, not just a
-            // colour change on the number.
-            const [hypoEvent, setHypoEvent] = useState(false);
-
-            // ── IMPROVEMENT #3 ──────────────────────────────────────
-            // Feedback state — null = not yet answered,
-            // 'up' or 'down' = player's response.
-            const [feedback, setFeedback] = useState(null);
-
-            const MAX_DAYS   = 7;
-            const TARGET_MIN = 80;
-            const TARGET_MAX = 130;
-            const HYPO_THRESHOLD = 70;   // clinical low threshold
-
-            useEffect(() => {
-                if (gameState === 'playing') {
-                    const avgGlucose = history.reduce((sum, h) => sum + h.glucose, 0) / history.length;
-                    const healingRate = avgGlucose < 140 ? 15 : avgGlucose < 180 ? 10 : 5;
-                    const glp1Bonus  = onGLP1 ? 5 : 0;
-                    setWoundHealing(prev => Math.min(100, prev + healingRate + glp1Bonus));
-
-                    let newWifiScore;
-                    if      (avgGlucose < 130) newWifiScore = onGLP1 ? 0 : 1;
-                    else if (avgGlucose < 180) newWifiScore = onGLP1 ? 1 : 2;
-                    else                       newWifiScore = onGLP1 ? 2 : 3;
-                    setWifiScore(newWifiScore);
-
-                    if      (newWifiScore === 0) setAmputationRisk('very low');
-                    else if (newWifiScore === 1) setAmputationRisk('low');
-                    else if (newWifiScore === 2) setAmputationRisk('moderate');
-                    else                         setAmputationRisk('high');
-                }
-            }, [day, gameState, onGLP1, history]);
-
-            const getGlucoseColor = (level) => {
-                if (level < HYPO_THRESHOLD) return 'text-red-600';
-                if (level <= TARGET_MAX)    return 'text-green-600';
-                if (level <= 180)           return 'text-yellow-600';
-                return 'text-red-600';
-            };
-
-            const getWifiColor = () => {
-                if (wifiScore <= 1) return 'text-green-600';
-                if (wifiScore === 2) return 'text-yellow-600';
-                return 'text-red-600';
-            };
-
-            const makeChoice = (choice) => {
-                let newGlucose = glucoseLevel;
-                let feedbackMsg = '';
-                let points = 0;
-
-                switch(choice) {
-                    case 'balanced_breakfast':
-                        newGlucose += 30;
-                        feedbackMsg = 'Good choice! Balanced meal with protein and complex carbs.';
-                        points = 10; break;
-                    case 'sugary_breakfast':
-                        newGlucose += 80;
-                        feedbackMsg = 'Blood sugar spiking! Simple sugars cause rapid increases.';
-                        points = -5; break;
-                    case 'skip_breakfast':
-                        newGlucose -= 20;
-                        feedbackMsg = 'Skipping meals can cause unstable blood sugar.';
-                        break;
-                    case 'take_glp1':
-                        newGlucose -= 45;
-                        setOnGLP1(true);
-                        feedbackMsg = 'GLP-1 RA started! Reduces glucose AND amputation risk (ADA 2026).';
-                        points = 20; break;
-                    case 'take_medication':
-                        newGlucose -= 40;
-                        feedbackMsg = 'Medication taken. Insulin helping cells absorb glucose.';
-                        points = 15; break;
-                    case 'skip_medication':
-                        feedbackMsg = 'Skipped medication. Blood sugar will remain elevated.';
-                        points = -10; break;
-                    case 'walk':
-                        newGlucose -= 25;
-                        feedbackMsg = 'Great! Exercise improves insulin sensitivity.';
-                        points = 15; break;
-                    case 'sedentary':
-                        newGlucose += 10;
-                        feedbackMsg = 'Inactivity reduces insulin effectiveness.';
-                        break;
-                    case 'balanced_lunch':
-                        newGlucose += 35;
-                        feedbackMsg = 'Well balanced! Fiber slows glucose absorption.';
-                        points = 10; break;
-                    case 'fast_food':
-                        newGlucose += 90;
-                        feedbackMsg = 'Fast food spike! High carbs delay insulin action.';
-                        points = -5; break;
-                    case 'check_wound':
-                        feedbackMsg = `Wound check: WIfI score ${wifiScore}. Predicts healing and amputation risk.`;
-                        points = 5; break;
-                    case 'advanced_therapy':
-                        feedbackMsg = 'Advanced therapy discussed per ADA 2026 guidelines.';
-                        points = 10; break;
-                }
-
-                // Natural glucose drift
-                newGlucose -= 5;
-                newGlucose = Math.max(50, Math.min(400, newGlucose));
-
-                // ── IMPROVEMENT #2 — Hypoglycemia check ─────────────
-                // Trigger BEFORE the target-range bonus so the two
-                // messages don't overlap. A hypo event:
-                //   • Replaces the normal feedback message
-                //   • Applies a -15 point penalty (on top of any above)
-                //   • Sets hypoEvent flag so the UI shows the red panel
-                if (newGlucose < HYPO_THRESHOLD) {
-                    feedbackMsg =
-                        '🚨 HYPOGLYCEMIA! Glucose below 70 mg/dL. ' +
-                        'Symptoms include confusion, shakiness, and loss of consciousness. ' +
-                        'Treat immediately with 15g fast-acting carbs (juice, glucose tablets). ' +
-                        'Recheck in 15 minutes.';
-                    points -= 15;
-                    setHypoEvent(true);
-                } else {
-                    setHypoEvent(false);
-                    // Target-range bonus only applies when NOT hypoglycemic
-                    if (newGlucose >= TARGET_MIN && newGlucose <= TARGET_MAX) {
-                        points += 5;
-                        feedbackMsg += ' 🎯 In target range!';
-                    }
-                }
-
-                setGlucoseLevel(newGlucose);
-                setMessage(feedbackMsg);
-                setScore(prev => prev + points);
-                advanceTime(newGlucose);
-            };
-
-            const advanceTime = (currentGlucose) => {
-                const times = ['morning', 'midday', 'afternoon', 'evening'];
-                const currentIndex = times.indexOf(timeOfDay);
-                if (currentIndex < times.length - 1) {
-                    setTimeOfDay(times[currentIndex + 1]);
-                    setHistory(prev => [...prev, { day, time: times[currentIndex + 1], glucose: currentGlucose }]);
-                } else {
-                    if (day < MAX_DAYS) {
-                        setDay(prev => prev + 1);
-                        setTimeOfDay('morning');
-                        setHistory(prev => [...prev, { day: day + 1, time: 'morning', glucose: currentGlucose }]);
-                        setMessage(`Day ${day} complete!`);
-                        setHypoEvent(false);
-                    } else {
-                        setGameState('results');
-                    }
-                }
-            };
-
-            const startGame = () => {
-                setGameState('playing');
-                setDay(1);
-                setGlucoseLevel(100);
-                setWoundHealing(0);
-                setTimeOfDay('morning');
-                setHistory([{ day: 1, time: 'morning', glucose: 100 }]);
-                setMessage('');
-                setScore(0);
-                setWifiScore(2);
-                setOnGLP1(false);
-                setAmputationRisk('moderate');
-                setHypoEvent(false);
-                setFeedback(null);
-            };
-
-            // ── INTRO SCREEN ─────────────────────────────────────────
-            if (gameState === 'intro') {
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 fade-in">
-                        <div className="max-w-2xl mx-auto bg-white rounded-xl shadow-2xl p-8">
-                            <div className="text-center mb-8">
-                                <div className="w-16 h-16 text-red-500 mx-auto mb-4"><Heart /></div>
-                                <h1 className="text-4xl font-bold text-gray-800 mb-2">Glucose Guardian</h1>
-                                <p className="text-xl text-gray-600">A Diabetes Management Journey</p>
-                                <p className="text-sm text-indigo-600 mt-2">Updated with ADA 2026 Standards</p>
-                            </div>
-
-                            <div className="bg-blue-50 border-l-4 border-blue-500 p-6 mb-6">
-                                <h2 className="text-xl font-semibold text-gray-800 mb-3">Your Mission</h2>
-                                <p className="text-gray-700 mb-3">
-                                    Manage a chronic foot wound patient. Goal: maintain glucose between{' '}
-                                    <strong>80–130 mg/dL</strong> over 7 days.
-                                </p>
-                                <p className="text-gray-700">
-                                    Poor control increases WIfI score and amputation risk. Every choice matters!
-                                </p>
-                            </div>
-
-                            <div className="bg-indigo-50 border-l-4 border-indigo-500 p-6 mb-6">
-                                <h2 className="text-lg font-semibold text-gray-800 mb-2">🆕 2026 ADA Updates</h2>
-                                <ul className="text-sm text-gray-700 space-y-2">
-                                    <li><strong>WIfI Staging:</strong> Predicts healing and amputation risk</li>
-                                    <li><strong>GLP-1 Therapies:</strong> Reduce lower-extremity amputations</li>
-                                    <li><strong>Advanced Therapies:</strong> Earlier consideration recommended</li>
-                                </ul>
-                            </div>
-
-                            <button
-                                onClick={startGame}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-lg smooth btn-press"
-                            >
-                                Start Your 7-Day Journey
-                            </button>
-
-                            {/* IMPROVEMENT #1 — Disclaimer on intro */}
-                            <Disclaimer />
-                        </div>
-                    </div>
-                );
-            }
-
-            // ── RESULTS SCREEN ───────────────────────────────────────
-            if (gameState === 'results') {
-                const avgGlucose    = Math.round(history.reduce((sum, h) => sum + h.glucose, 0) / history.length);
-                const timeInRange   = history.filter(h => h.glucose >= TARGET_MIN && h.glucose <= TARGET_MAX).length;
-                const percentInRange = Math.round((timeInRange / history.length) * 100);
-                const hypoEvents    = history.filter(h => h.glucose < HYPO_THRESHOLD).length;
-
-                return (
-                    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8 fade-in">
-                        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-2xl p-8">
-                            <div className="text-center mb-8">
-                                <div className="w-20 h-20 text-yellow-500 mx-auto mb-4"><Trophy /></div>
-                                <h1 className="text-4xl font-bold text-gray-800 mb-2">7-Day Journey Complete!</h1>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6 mb-6">
-                                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg">
-                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Average Glucose</h3>
-                                    <p className={`text-4xl font-bold ${getGlucoseColor(avgGlucose)}`}>{avgGlucose}</p>
-                                    <p className="text-sm text-gray-600 mt-1">mg/dL</p>
-                                </div>
-                                <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg">
-                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Time in Range</h3>
-                                    <p className="text-4xl font-bold text-green-600">{percentInRange}%</p>
-                                    <p className="text-sm text-gray-600 mt-1">80–130 mg/dL</p>
-                                </div>
-                                <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg">
-                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Wound Healing</h3>
-                                    <p className="text-4xl font-bold text-purple-600">{woundHealing}%</p>
-                                </div>
-                                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-6 rounded-lg">
-                                    <h3 className="text-sm font-semibold text-gray-600 mb-2">Total Score</h3>
-                                    <p className="text-4xl font-bold text-yellow-600">{score}</p>
-                                </div>
-                            </div>
-
-                            {/* IMPROVEMENT #2 — Hypo summary on results */}
-                            {hypoEvents > 0 && (
-                                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
-                                    <p className="font-semibold text-red-800 mb-1">
-                                        ⚠️ {hypoEvents} Hypoglycemic Event{hypoEvents > 1 ? 's' : ''} This Week
-                                    </p>
-                                    <p className="text-sm text-red-700">
-                                        Glucose below 70 mg/dL is a medical emergency. In real life, untreated
-                                        hypoglycemia can cause confusion, seizures, or loss of consciousness.
-                                        Work with your care team to prevent lows while staying in target range.
-                                    </p>
-                                </div>
-                            )}
-
-                            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-lg mb-6">
-                                <div className="flex items-center mb-3">
-                                    <div className="w-6 h-6 text-indigo-600 mr-2"><Shield /></div>
-                                    <h3 className="text-lg font-semibold text-indigo-900">WIfI Score Assessment (ADA 2026)</h3>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <p className="text-sm text-gray-600 mb-1">Final WIfI Score</p>
-                                        <p className={`text-3xl font-bold ${getWifiColor()}`}>{wifiScore}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-sm text-gray-600 mb-1">Amputation Risk</p>
-                                        <p className={`text-2xl font-bold capitalize ${getWifiColor()}`}>{amputationRisk}</p>
-                                        {onGLP1 && <p className="text-xs text-green-600 mt-1">✓ GLP-1 reduces risk</p>}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* IMPROVEMENT #3 — In-game feedback prompt */}
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 mb-6">
-                                <p className="font-semibold text-gray-800 text-center mb-3">
-                                    Was this game helpful?
-                                </p>
-                                {feedback === null ? (
-                                    <div className="flex justify-center gap-6">
-                                        <button
-                                            onClick={() => setFeedback('up')}
-                                            className="flex flex-col items-center gap-1 px-6 py-3 rounded-lg bg-green-100 hover:bg-green-200 smooth btn-press"
-                                        >
-                                            <span className="text-3xl">👍</span>
-                                            <span className="text-sm font-semibold text-green-800">Yes!</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setFeedback('down')}
-                                            className="flex flex-col items-center gap-1 px-6 py-3 rounded-lg bg-red-100 hover:bg-red-200 smooth btn-press"
-                                        >
-                                            <span className="text-3xl">👎</span>
-                                            <span className="text-sm font-semibold text-red-800">Not yet</span>
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="text-center fade-in">
-                                        {feedback === 'up' ? (
-                                            <p className="text-green-700 font-semibold">
-                                                🎉 Thank you! Share it with a friend or family member who manages diabetes.
-                                            </p>
-                                        ) : (
-                                            <p className="text-gray-700 font-semibold">
-                                                Thanks for the honest feedback — we'll keep improving. Play again to try a different strategy!
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="space-y-3">
-                                <button
-                                    onClick={startGame}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg smooth btn-press"
-                                >
-                                    Play Again
-                                </button>
-                                <button
-                                    onClick={() => setGameState('intro')}
-                                    className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg smooth btn-press"
-                                >
-                                    Back to Intro
-                                </button>
-                            </div>
-
-                            {/* IMPROVEMENT #1 — Disclaimer on results */}
-                            <Disclaimer />
-                        </div>
-                    </div>
-                );
-            }
-
-            // ── MAIN GAMEPLAY ────────────────────────────────────────
+        /* ══ RESULTS ════════════════════════════════════════════════ */
+        if (gameState === 'results') {
+            const avg  = Math.round(history.reduce((s,h)=>s+h.glucose,0)/history.length);
+            const pct  = Math.round(history.filter(h=>h.glucose>=TARGET_MIN&&h.glucose<=TARGET_MAX).length/history.length*100);
+            const hypos = history.filter(h=>h.glucose<HYPO).length;
             return (
-                <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 fade-in">
-                    <div className="max-w-5xl mx-auto">
-
-                        {/* Dashboard */}
-                        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Day</p>
-                                    <p className="text-3xl font-bold text-indigo-600">{day}/{MAX_DAYS}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Blood Glucose</p>
-                                    <p className={`text-3xl font-bold ${getGlucoseColor(glucoseLevel)}`}>{glucoseLevel}</p>
-                                    <p className="text-xs text-gray-500">mg/dL</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm text-gray-600 mb-1">Wound Healing</p>
-                                    <div className="flex items-center">
-                                        <div className="flex-1 bg-gray-200 rounded-full h-4 mr-2">
-                                            <div className="bg-green-500 h-4 rounded-full smooth" style={{ width: `${woundHealing}%` }} />
-                                        </div>
-                                        <span className="text-sm font-semibold">{woundHealing}%</span>
-                                    </div>
-                                </div>
+                <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 p-8 fade-in">
+                    <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-2xl p-8">
+                        <div className="text-center mb-8">
+                            <div className="w-20 h-20 text-yellow-500 mx-auto mb-4"><Trophy /></div>
+                            <h1 className="text-4xl font-bold text-gray-800 mb-2">7-Day Journey Complete!</h1>
+                        </div>
+                        <div className="grid grid-cols-2 gap-6 mb-6">
+                            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg">
+                                <h3 className="text-sm font-semibold text-gray-600 mb-2">Average Blood Sugar</h3>
+                                <p className={`text-4xl font-bold ${gcColor(avg)}`}>{avg}</p>
+                                <p className="text-sm text-gray-600 mt-1">mg/dL</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg">
+                                <h3 className="text-sm font-semibold text-gray-600 mb-2">Time in Healthy Range</h3>
+                                <p className="text-4xl font-bold text-green-600">{pct}%</p>
+                                <p className="text-sm text-gray-600 mt-1">80–130 mg/dL</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg">
+                                <h3 className="text-sm font-semibold text-gray-600 mb-2">Wound Healing</h3>
+                                <p className="text-4xl font-bold text-purple-600">{woundHealing}%</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-6 rounded-lg">
+                                <h3 className="text-sm font-semibold text-gray-600 mb-2">Total Score</h3>
+                                <p className="text-4xl font-bold text-yellow-600">{score}</p>
+                            </div>
+                        </div>
+                        {hypos > 0 && (
+                            <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg mb-6">
+                                <p className="font-semibold text-red-800 mb-1">⚠️ {hypos} Low Blood Sugar Event{hypos>1?'s':''} This Week</p>
+                                <p className="text-sm text-red-700">Blood sugar below 70 mg/dL is a medical emergency. Work with your care team to prevent lows while staying out of the high range.</p>
+                            </div>
+                        )}
+                        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-6 rounded-lg mb-6">
+                            <div className="flex items-center mb-3">
+                                <div className="w-6 h-6 text-indigo-600 mr-2"><Shield /></div>
+                                <h3 className="text-lg font-semibold text-indigo-900">Wound Risk Score (WIfI — ADA 2026)</h3>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <p className="text-sm text-gray-600 mb-1">WIfI Score</p>
-                                    <p className={`text-3xl font-bold ${getWifiColor()}`}>{wifiScore}</p>
+                                    <p className={`text-3xl font-bold ${wfColor()}`}>{wifiScore}</p>
+                                    <p className="text-xs text-gray-500 mt-1">0 = lowest risk · 3 = highest</p>
                                 </div>
                                 <div>
-                                    <p className="text-sm text-gray-600 mb-1">Score</p>
-                                    <p className="text-3xl font-bold text-purple-600">{score}</p>
-                                    {onGLP1 && <p className="text-xs text-green-600">GLP-1 Active</p>}
+                                    <p className="text-sm text-gray-600 mb-1">Amputation Risk</p>
+                                    <p className={`text-2xl font-bold capitalize ${wfColor()}`}>{amputationRisk}</p>
+                                    {onGLP1 && <p className="text-xs text-green-600 mt-1">✓ GLP-1 reduced your risk</p>}
                                 </div>
                             </div>
                         </div>
-
-                        {/* IMPROVEMENT #2 — Hypoglycemia alert panel */}
-                        {hypoEvent && (
-                            <div className="hypo-alert border-2 border-red-500 rounded-xl p-4 mb-6 fade-in">
-                                <div className="flex items-start gap-3">
-                                    <span className="text-3xl">🚨</span>
-                                    <div>
-                                        <p className="font-bold text-red-800 text-lg mb-1">
-                                            HYPOGLYCEMIA — Glucose Below 70 mg/dL
-                                        </p>
-                                        <p className="text-red-700 text-sm">
-                                            This is a medical emergency. Real symptoms include shakiness,
-                                            confusion, sweating, and risk of loss of consciousness.
-                                            Treat with 15g fast-acting carbs and recheck in 15 minutes.
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Standard feedback message */}
-                        {message && !hypoEvent && (
-                            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6 rounded">
-                                <p className="text-gray-800">{message}</p>
-                            </div>
-                        )}
-
-                        {/* Choice cards */}
-                        <div className="bg-white rounded-xl shadow-lg p-6">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-4 capitalize">
-                                {timeOfDay} — What will you do?
-                            </h2>
-
-                            {timeOfDay === 'morning' && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <button onClick={() => makeChoice('balanced_breakfast')} className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-green-600 mb-2"><Apple /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Balanced Breakfast</h3>
-                                        <p className="text-sm text-gray-600">Oatmeal with berries and nuts</p>
-                                        <p className="text-xs text-green-600 mt-2">~30g carbs, high fiber</p>
+                        <ClinicalInsights avgGlucose={avg} percentInRange={pct} hypoEvents={hypos} onGLP1={onGLP1} woundHealing={woundHealing} />
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-5 mb-6">
+                            <p className="font-semibold text-gray-800 text-center mb-3">Was this game helpful?</p>
+                            {feedbackResp === null ? (
+                                <div className="flex justify-center gap-6">
+                                    <button onClick={()=>setFeedbackResp('up')}
+                                        className="choice-card flex flex-col items-center gap-1 px-6 py-3 rounded-lg bg-green-100 hover:bg-green-200">
+                                        <span className="text-3xl">👍</span>
+                                        <span className="text-sm font-semibold text-green-800">Yes!</span>
                                     </button>
-                                    <button onClick={() => makeChoice('sugary_breakfast')} className="bg-yellow-50 hover:bg-yellow-100 border-2 border-yellow-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-yellow-600 mb-2"><Apple /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Sugary Breakfast</h3>
-                                        <p className="text-sm text-gray-600">Donuts and orange juice</p>
-                                        <p className="text-xs text-yellow-600 mt-2">~80g carbs, simple sugars</p>
-                                    </button>
-                                    <button onClick={() => makeChoice('skip_breakfast')} className="bg-red-50 hover:bg-red-100 border-2 border-red-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-red-600 mb-2"><Alert /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Skip Breakfast</h3>
-                                        <p className="text-sm text-gray-600">No time to eat</p>
-                                        <p className="text-xs text-red-600 mt-2">Unstable glucose</p>
+                                    <button onClick={()=>setFeedbackResp('down')}
+                                        className="choice-card flex flex-col items-center gap-1 px-6 py-3 rounded-lg bg-red-100 hover:bg-red-200">
+                                        <span className="text-3xl">👎</span>
+                                        <span className="text-sm font-semibold text-red-800">Not yet</span>
                                     </button>
                                 </div>
-                            )}
-
-                            {timeOfDay === 'midday' && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <button onClick={() => makeChoice('take_glp1')} disabled={onGLP1} className={`bg-blue-50 hover:bg-blue-100 border-2 border-blue-200 p-6 rounded-lg text-left smooth btn-press ${onGLP1 ? 'opacity-60' : ''}`}>
-                                        <div className="w-8 h-8 text-blue-600 mb-2"><Pill /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">{onGLP1 ? 'GLP-1 RA (Active)' : 'Start GLP-1 RA'}</h3>
-                                        <p className="text-sm text-gray-600">{onGLP1 ? 'Already taking' : 'Semaglutide or similar'}</p>
-                                        <p className="text-xs text-blue-600 mt-2">ADA 2026: Reduces amputations</p>
-                                    </button>
-                                    <button onClick={() => makeChoice('take_medication')} className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-green-600 mb-2"><Pill /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Take Insulin</h3>
-                                        <p className="text-sm text-gray-600">Standard insulin before lunch</p>
-                                        <p className="text-xs text-green-600 mt-2">Helps cells absorb glucose</p>
-                                    </button>
-                                    <button onClick={() => makeChoice('skip_medication')} className="bg-red-50 hover:bg-red-100 border-2 border-red-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-red-600 mb-2"><Alert /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Skip Medication</h3>
-                                        <p className="text-sm text-gray-600">Forgot or too busy</p>
-                                        <p className="text-xs text-red-600 mt-2">Glucose stays elevated</p>
-                                    </button>
-                                </div>
-                            )}
-
-                            {timeOfDay === 'afternoon' && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <button onClick={() => makeChoice('walk')} className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-green-600 mb-2"><Activity /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">30-Minute Walk</h3>
-                                        <p className="text-sm text-gray-600">Moderate exercise</p>
-                                        <p className="text-xs text-green-600 mt-2">Improves insulin sensitivity</p>
-                                    </button>
-                                    <button onClick={() => makeChoice('sedentary')} className="bg-gray-50 hover:bg-gray-100 border-2 border-gray-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-gray-600 mb-2"><Alert /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Watch TV</h3>
-                                        <p className="text-sm text-gray-600">Sedentary afternoon</p>
-                                        <p className="text-xs text-gray-600 mt-2">Reduced insulin effectiveness</p>
-                                    </button>
-                                    <button onClick={() => makeChoice('balanced_lunch')} className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-green-600 mb-2"><Apple /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Balanced Lunch</h3>
-                                        <p className="text-sm text-gray-600">Grilled chicken salad</p>
-                                        <p className="text-xs text-green-600 mt-2">~35g carbs, high protein</p>
-                                    </button>
-                                </div>
-                            )}
-
-                            {timeOfDay === 'evening' && (
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <button onClick={() => makeChoice('balanced_lunch')} className="bg-green-50 hover:bg-green-100 border-2 border-green-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-green-600 mb-2"><Apple /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Healthy Dinner</h3>
-                                        <p className="text-sm text-gray-600">Salmon, vegetables, quinoa</p>
-                                        <p className="text-xs text-green-600 mt-2">~40g carbs, omega-3s</p>
-                                    </button>
-                                    <button onClick={() => makeChoice('fast_food')} className="bg-red-50 hover:bg-red-100 border-2 border-red-200 p-6 rounded-lg text-left smooth btn-press">
-                                        <div className="w-8 h-8 text-red-600 mb-2"><Alert /></div>
-                                        <h3 className="font-semibold text-gray-800 mb-2">Fast Food</h3>
-                                        <p className="text-sm text-gray-600">Burger, fries, soda</p>
-                                        <p className="text-xs text-red-600 mt-2">~90g carbs, high fat</p>
-                                    </button>
-                                    {day >= 4 ? (
-                                        <button onClick={() => makeChoice('advanced_therapy')} className="bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 p-6 rounded-lg text-left smooth btn-press">
-                                            <div className="w-8 h-8 text-purple-600 mb-2"><Heart /></div>
-                                            <h3 className="font-semibold text-gray-800 mb-2">Advanced Therapy</h3>
-                                            <p className="text-sm text-gray-600">Discuss with provider</p>
-                                            <p className="text-xs text-purple-600 mt-2">ADA 2026: Early consideration</p>
-                                        </button>
-                                    ) : (
-                                        <button onClick={() => makeChoice('check_wound')} className="bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 p-6 rounded-lg text-left smooth btn-press">
-                                            <div className="w-8 h-8 text-purple-600 mb-2"><Heart /></div>
-                                            <h3 className="font-semibold text-gray-800 mb-2">Check Wound</h3>
-                                            <p className="text-sm text-gray-600">Evening wound care</p>
-                                            <p className="text-xs text-purple-600 mt-2">Monitor WIfI score</p>
-                                        </button>
-                                    )}
+                            ) : (
+                                <div className="text-center fade-in">
+                                    {feedbackResp==='up'
+                                        ? <p className="text-green-700 font-semibold">🎉 Thank you! Share with someone who manages diabetes.</p>
+                                        : <p className="text-gray-700 font-semibold">Thanks for the honest feedback — play again and try a different strategy!</p>}
                                 </div>
                             )}
                         </div>
+                        <div className="space-y-3">
+                            <button onClick={startGame}
+                                className="choice-card w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg">
+                                Play Again
+                            </button>
+                            <button onClick={()=>setGameState('intro')}
+                                className="choice-card w-full bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-lg">
+                                Back to Intro
+                            </button>
+                        </div>
+                        <Disclaimer />
                     </div>
                 </div>
             );
         }
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<GlucoseGuardian />);
-    </script>
+        /* ══ GAMEPLAY ═══════════════════════════════════════════════ */
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 fade-in">
+                <div className="max-w-5xl mx-auto">
+
+                    {/* Dashboard */}
+                    <div className="bg-white rounded-xl shadow-lg p-6 mb-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-4">
+                            <div>
+                                <p className="text-sm text-gray-500 mb-1">Day</p>
+                                <p className="text-3xl font-bold text-indigo-600">{day}<span className="text-lg text-gray-400">/{MAX_DAYS}</span></p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 mb-1">Blood Sugar</p>
+                                <p className={`text-3xl font-bold ${gcColor(glucoseLevel)}`}>{glucoseLevel}</p>
+                                <p className="text-xs text-gray-400">mg/dL</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 mb-1">Wound Healing</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <div className="flex-1 bg-gray-200 rounded-full h-4 overflow-hidden">
+                                        <div className={`bg-green-500 h-4 rounded-full smooth ${healFlash?'heal-glow':''}`}
+                                             style={{width:`${woundHealing}%`}} />
+                                    </div>
+                                    <span className="text-sm font-bold text-green-700">{woundHealing}%</span>
+                                </div>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 mb-1">WIfI Score</p>
+                                <p className={`text-3xl font-bold ${wfColor()}`}>{wifiScore}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 mb-1">Score</p>
+                                <p className={`text-3xl font-bold text-purple-600 ${scoreFlash?'score-pop':''}`}>{score}</p>
+                                {onGLP1 && <p className="text-xs text-green-600 font-medium">GLP-1 Active ✓</p>}
+                            </div>
+                        </div>
+                        <TimeStepper current={timeOfDay} />
+                    </div>
+
+                    {/* Hypo alert */}
+                    {hypoEvent && (
+                        <div className="hypo-alert border-2 border-red-500 rounded-xl p-4 mb-4 fade-in">
+                            <div className="flex gap-3">
+                                <span className="text-3xl">🚨</span>
+                                <div>
+                                    <p className="font-bold text-red-800 text-lg mb-1">LOW BLOOD SUGAR — Below 70 mg/dL</p>
+                                    <p className="text-sm text-red-700">Treat with 15g fast sugar now. Recheck in 15 minutes. Do not skip this step.</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Feedback message */}
+                    {message && !hypoEvent && (
+                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4 rounded-lg fade-in">
+                            <p className="text-gray-800">{message}</p>
+                        </div>
+                    )}
+
+                    {/* Choice panel */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                        <div className="mb-4">
+                            <h2 className="text-2xl font-bold text-gray-800">{TIME_LABELS[timeOfDay]}</h2>
+                            <p className="text-sm text-gray-400 mt-1">Choose one action for this time of day.</p>
+                        </div>
+
+                        {/* ── MORNING: Breakfast ── */}
+                        {timeOfDay === 'morning' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <ChoiceCard onClick={()=>makeChoice('balanced_breakfast')}
+                                    colorClass="bg-green-50 hover:bg-green-100" borderClass="border-green-200"
+                                    iconColor="text-green-600" icon={<Apple />}
+                                    title="Balanced Breakfast"
+                                    sub="Steel-cut oatmeal, berries, walnuts"
+                                    tag="~30g carbs · high fiber · slow release" />
+                                <ChoiceCard onClick={()=>makeChoice('smoothie_granola')}
+                                    colorClass="bg-yellow-50 hover:bg-yellow-100" borderClass="border-yellow-200"
+                                    iconColor="text-yellow-600" icon={<Apple />}
+                                    title="Fruit Smoothie & Granola"
+                                    sub="Banana, mango & OJ blend + granola"
+                                    tag="Seems healthy — but is it?" />
+                                <ChoiceCard onClick={()=>makeChoice('skip_breakfast')}
+                                    colorClass="bg-red-50 hover:bg-red-100" borderClass="border-red-200"
+                                    iconColor="text-red-600" icon={<AlertIc />}
+                                    title="Skip Breakfast"
+                                    sub="Too busy this morning"
+                                    tag="Unpredictable blood sugar all day" />
+                            </div>
+                        )}
+
+                        {/* ── MIDDAY: Medication ── */}
+                        {timeOfDay === 'midday' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <ChoiceCard onClick={()=>makeChoice('take_glp1')} disabled={onGLP1}
+                                    colorClass="bg-blue-50 hover:bg-blue-100" borderClass="border-blue-200"
+                                    iconColor="text-blue-600" icon={<Pill />}
+                                    title={onGLP1 ? 'GLP-1 Medication (Active)' : 'Start GLP-1 Medication'}
+                                    sub={onGLP1 ? 'Already taking — protecting glucose & feet' : 'Semaglutide (Ozempic) or similar'}
+                                    tag="ADA 2026: Also reduces amputation risk" />
+                                <ChoiceCard onClick={()=>makeChoice('take_medication')}
+                                    colorClass="bg-green-50 hover:bg-green-100" borderClass="border-green-200"
+                                    iconColor="text-green-600" icon={<Pill />}
+                                    title="Take Insulin"
+                                    sub="Standard dose before lunch"
+                                    tag="Opens cells to absorb blood sugar" />
+                                <ChoiceCard onClick={()=>makeChoice('skip_medication')}
+                                    colorClass="bg-red-50 hover:bg-red-100" borderClass="border-red-200"
+                                    iconColor="text-red-600" icon={<AlertIc />}
+                                    title="Skip Medication"
+                                    sub="Forgot or ran out"
+                                    tag="Glucose stays elevated all afternoon" />
+                            </div>
+                        )}
+
+                        {/* ── AFTERNOON: Activity (FIX 2 — 4 options for all ability levels) ── */}
+                        {timeOfDay === 'afternoon' && (
+                            <>
+                                <p className="text-xs text-indigo-600 font-medium mb-3 bg-indigo-50 px-3 py-2 rounded-lg inline-block">
+                                    💡 All activity levels help — choose what works for you today
+                                </p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <ChoiceCard onClick={()=>makeChoice('walk_30')}
+                                        colorClass="bg-green-50 hover:bg-green-100" borderClass="border-green-200"
+                                        iconColor="text-green-600" icon={<Activity />}
+                                        title="30-Min Walk"
+                                        sub="Brisk outdoor or treadmill walk"
+                                        tag="Most effective · −25 blood sugar" />
+                                    <ChoiceCard onClick={()=>makeChoice('chair_exercises')}
+                                        colorClass="bg-teal-50 hover:bg-teal-100" borderClass="border-teal-200"
+                                        iconColor="text-teal-600" icon={<Activity />}
+                                        title="Chair Exercises"
+                                        sub="Seated resistance & leg movements"
+                                        tag="Great for limited mobility · −15" />
+                                    <ChoiceCard onClick={()=>makeChoice('light_yoga')}
+                                        colorClass="bg-sky-50 hover:bg-sky-100" borderClass="border-sky-200"
+                                        iconColor="text-sky-600" icon={<Activity />}
+                                        title="Gentle Yoga / Stretch"
+                                        sub="Light stretching & breathing"
+                                        tag="Improves circulation · −10" />
+                                    <ChoiceCard onClick={()=>makeChoice('rest_couch')}
+                                        colorClass="bg-gray-50 hover:bg-gray-100" borderClass="border-gray-200"
+                                        iconColor="text-gray-500" icon={<AlertIc />}
+                                        title="Rest on Couch"
+                                        sub="Watch TV, browse phone"
+                                        tag="Reduces insulin effectiveness" />
+                                </div>
+                            </>
+                        )}
+
+                        {/* ── DINNER (FIX 1 — now its own separate time slot) ── */}
+                        {timeOfDay === 'dinner' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <ChoiceCard onClick={()=>makeChoice('healthy_dinner')}
+                                    colorClass="bg-green-50 hover:bg-green-100" borderClass="border-green-200"
+                                    iconColor="text-green-600" icon={<Apple />}
+                                    title="Baked Salmon Plate"
+                                    sub="Salmon, roasted vegetables, quinoa"
+                                    tag="~35g carbs · anti-inflammatory · low GI" />
+                                <ChoiceCard onClick={()=>makeChoice('pasta_dinner')}
+                                    colorClass="bg-yellow-50 hover:bg-yellow-100" borderClass="border-yellow-200"
+                                    iconColor="text-yellow-600" icon={<Apple />}
+                                    title="Pasta Primavera"
+                                    sub="White pasta, marinara sauce, veggies"
+                                    tag="Vegetables are great — but the pasta?" />
+                                <ChoiceCard onClick={()=>makeChoice('baked_potato_dinner')}
+                                    colorClass="bg-orange-50 hover:bg-orange-100" borderClass="border-orange-200"
+                                    iconColor="text-orange-600" icon={<Apple />}
+                                    title="Chicken & Baked Potato"
+                                    sub="Grilled chicken, plain baked potato"
+                                    tag="Lean protein, but what about the potato?" />
+                            </div>
+                        )}
+
+                        {/* ── EVENING: Wound Care (FIX 1 — now its own separate time slot) ── */}
+                        {timeOfDay === 'evening' && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <ChoiceCard onClick={()=>makeChoice('dress_wound')}
+                                    colorClass="bg-purple-50 hover:bg-purple-100" borderClass="border-purple-200"
+                                    iconColor="text-purple-600" icon={<Heart />}
+                                    title="Clean & Dress Wound"
+                                    sub="Irrigate, inspect, redress properly"
+                                    tag="Prevents infection · shows WIfI score" />
+                                {day >= 4 ? (
+                                    <ChoiceCard onClick={()=>makeChoice('advanced_therapy')}
+                                        colorClass="bg-indigo-50 hover:bg-indigo-100" borderClass="border-indigo-200"
+                                        iconColor="text-indigo-600" icon={<Shield />}
+                                        title="Discuss Advanced Therapy"
+                                        sub="Ask provider about next-level options"
+                                        tag="ADA 2026: Don't wait — ask early" />
+                                ) : (
+                                    <ChoiceCard onClick={()=>makeChoice('relaxation')}
+                                        colorClass="bg-blue-50 hover:bg-blue-100" borderClass="border-blue-200"
+                                        iconColor="text-blue-600" icon={<Activity />}
+                                        title="Relaxation & Good Sleep"
+                                        sub="Wind-down routine, 7–8 hours sleep"
+                                        tag="Cortisol reduction lowers blood sugar" />
+                                )}
+                                <ChoiceCard onClick={()=>makeChoice('skip_wound_care')}
+                                    colorClass="bg-red-50 hover:bg-red-100" borderClass="border-red-200"
+                                    iconColor="text-red-600" icon={<AlertIc />}
+                                    title="Skip Wound Care"
+                                    sub="Too tired, forgot"
+                                    tag="Bacteria build-up · infection risk rises" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<GlucoseGuardian />);
+</script>
 </body>
 </html>
